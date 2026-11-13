@@ -139,27 +139,30 @@ try:
         if action == "dl_mp3":
             filename = filename.rsplit('.', 1)[0] + '.mp3'
 
-file_size_mb = os.path.getsize(filename) / (1024 * 1024)
+    file_size_mb = os.path.getsize(filename) / (1024 * 1024)
+    
+    if file_size_mb > 50:
+        await msg.edit_text(f"❌ File too large!\nSize is {file_size_mb:.1f}MB. Telegram bot limit is 50MB.\nPlease choose 360p or MP3.", parse_mode='Markdown')
+        os.remove(filename)
+        return
 
-if file_size_mb > 50:
-    await msg.edit_text(f"❌ File too large!\nSize is {file_size_mb:.1f}MB. Telegram bot limit is 50MB.\nPlease choose 360p or MP3.", parse_mode='Markdown')
+    await msg.edit_text("⚡️ Download Complete!\n📤 *Uploading to Telegram...*", parse_mode='Markdown')
+    
+    if action == "dl_mp3":
+        with open(filename, 'rb') as audio:
+            await query.message.reply_audio(audio=audio, title=info.get('title', 'Audio'))
+    else:
+        with open(filename, 'rb') as video:
+            await query.message.reply_video(video=video, caption=f"✅ {quality_text} Downloaded Successfully!\n🤖 @NishuAI_Bot", parse_mode='Markdown')
+    
     os.remove(filename)
-    return
-
-await msg.edit_text("⚡️ Download Complete!\n📤 *Uploading to Telegram...*", parse_mode='Markdown')
-
-if action == "dl_mp3":
-    with open(filename, 'rb') as audio:
-        await query.message.reply_audio(audio=audio, title=info.get('title', 'Audio'))
-else:
-    with open(filename, 'rb') as video:
-        await query.message.reply_video(video=video, caption=f"✅ {quality_text} Downloaded Successfully!\n🤖 @NishuAI_Bot", parse_mode='Markdown')
-
-os.remove(filename)
-await msg.delete()
+    await msg.delete()
 
 except Exception as e:
     await msg.edit_text(f"❌ Download Failed:\n{str(e)[:100]}\n(The link might be invalid or blocked by YouTube)", parse_mode='Markdown')
+
+
+
 
    
 
