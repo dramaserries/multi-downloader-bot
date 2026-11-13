@@ -1,4 +1,4 @@
-[13-11-2026 14:45] ղ📍⚡♓⛎: import os
+import os
 import imageio_ffmpeg
 os.environ["PATH"] += os.pathsep + os.path.dirname(imageio_ffmpeg.get_ffmpeg_exe())
 
@@ -55,10 +55,12 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # YouTube ब्लॉक बायपास और कंप्रेशन सेटिंग्स
     base_opts = {
-        'extractor_args': {'youtube': {'player_client': ['android', 'web']}},
-        'outtmpl': 'media.%(ext)s',
-        'quiet': True
-    }
+    'extractor_args': {'youtube': {'player_client': ['ios', 'mweb']}}, # iOS क्लाइंट ब्लॉक को बायपास करेगा
+    'user_agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1',
+    'outtmpl': 'media.%(ext)s',
+    'quiet': True,
+    'nocheckcertificate': True
+}
 
     if action == "dl_1080":
         ydl_opts = {**base_opts, 'format': 'bestvideo[height<=1080]+bestaudio/best[height<=1080]'}
@@ -112,7 +114,7 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 last_update_time = current_time
                 
                 downloaded = d.get('downloaded_bytes', 0)
-[13-11-2026 14:45] ղ📍⚡♓⛎: total = d.get('total_bytes') or d.get('total_bytes_estimate', 0)
+total = d.get('total_bytes') or d.get('total_bytes_estimate', 0)
                 speed = d.get('_speed_str', 'N/A').strip()
                 
                 if total > 0:
