@@ -1,5 +1,7 @@
 import os
 import imageio_ffmpeg
+
+# FFmpeg सेटअप
 os.environ["PATH"] += os.pathsep + os.path.dirname(imageio_ffmpeg.get_ffmpeg_exe())
 
 import time
@@ -10,7 +12,7 @@ from flask import Flask
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, MessageHandler, filters, ContextTypes, CallbackQueryHandler
 
-# यहाँ अपना नया बॉट टोकन डालें
+# यहाँ अपना नया टोकन डालें
 TOKEN = "9103593916:AAHb0TpBBkCkzNi1Q2xe8kPhsGZ15B9t4x4"
 
 app = Flask(name)
@@ -51,7 +53,6 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text("⚠️ Link not found. Please send the link again.")
         return
 
-    # YouTube ब्लॉक बायपास (iOS Client) और बेस सेटिंग्स
     base_opts = {
         'extractor_args': {'youtube': {'player_client': ['ios', 'mweb']}},
         'user_agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1',
@@ -107,25 +108,25 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
             current_time = time.time()
             if current_time - last_update_time >= 4:
                 last_update_time = current_time
-            downloaded = d.get('downloaded_bytes', 0)
-total = d.get('total_bytes') or d.get('total_bytes_estimate', 0)
-speed = d.get('_speed_str', 'N/A').strip()
-
+                
+                downloaded = d.get('downloaded_bytes', 0)
+                total = d.get('total_bytes') or d.get('total_bytes_estimate', 0)
+                speed = d.get('_speed_str', 'N/A').strip()
 if total > 0:
-    percent = int((downloaded / total) * 100)
-    filled = int(percent / 10)
-    bar = "▰" * filled + "▱" * (10 - filled)
-    
-    text = (
-        f"◈ NISHU AI • ENGINE v2.0\n"
-        f"╭──────────────────────\n"
-        f"│ 🎬 Quality: {quality_text}\n"
-        f"│ 🚀 Speed: {speed}\n"
-        f"│ 📊 Progress: {bar} {percent}%\n"
-        f"╰──────────────────────\n"
-        f"📥 *Downloading... Please wait.*"
-    )
-    asyncio.run_coroutine_threadsafe(msg.edit_text(text, parse_mode='Markdown'), loop)
+                    percent = int((downloaded / total) * 100)
+                    filled = int(percent / 10)
+                    bar = "▰" * filled + "▱" * (10 - filled)
+                    
+                    text = (
+                        f"◈ NISHU AI • ENGINE v2.0\n"
+                        f"╭──────────────────────\n"
+                        f"│ 🎬 Quality: {quality_text}\n"
+                        f"│ 🚀 Speed: {speed}\n"
+                        f"│ 📊 Progress: {bar} {percent}%\n"
+                        f"╰──────────────────────\n"
+                        f"📥 *Downloading... Please wait.*"
+                    )
+                    asyncio.run_coroutine_threadsafe(msg.edit_text(text, parse_mode='Markdown'), loop)
 
     ydl_opts['progress_hooks'] = [progress_hook]
 
