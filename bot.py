@@ -99,11 +99,10 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"🚀 *Connecting to servers...*",
         parse_mode='Markdown'
     )
+last_update_time = 0
+loop = asyncio.get_running_loop()
 
-    last_update_time = 0
-    loop = asyncio.get_running_loop()
-
- def progress_hook(d):
+def progress_hook(d):
     nonlocal last_update_time
     if d['status'] == 'downloading':
         current_time = time.time()
@@ -129,6 +128,7 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     f"📥 *Downloading... Please wait.*"
                 )
                 asyncio.run_coroutine_threadsafe(msg.edit_text(text, parse_mode='Markdown'), loop)
+
     ydl_opts['progress_hooks'] = [progress_hook]
 
     try:
