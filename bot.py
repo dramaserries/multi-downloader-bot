@@ -1,7 +1,7 @@
 import os
 import imageio_ffmpeg
 
-# FFmpeg सेटअप
+# FFmpeg Setup
 os.environ["PATH"] += os.pathsep + os.path.dirname(imageio_ffmpeg.get_ffmpeg_exe())
 
 import time
@@ -53,7 +53,7 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text("⚠️ Link not found. Please send the link again.")
         return
 
-    # YouTube ब्लॉक बायपास (iOS Client)
+    # YouTube Block Bypass (iOS Client)
     base_opts = {
         'extractor_args': {'youtube': {'player_client': ['ios', 'mweb']}},
         'user_agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1',
@@ -168,6 +168,6 @@ def main():
     application.add_handler(CallbackQueryHandler(button_click))
     application.run_polling()
 
-if __name__ == '__main__':
+if name == 'main':
     threading.Thread(target=run_flask).start()
     main()
