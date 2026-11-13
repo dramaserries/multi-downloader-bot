@@ -161,11 +161,6 @@ try:
 except Exception as e:
     await msg.edit_text(f"❌ Download Failed:\n{str(e)[:100]}\n(The link might be invalid or blocked by YouTube)", parse_mode='Markdown')
 
-
-
-
-   
-
 def main():
     application = Application.builder().token(TOKEN).build()
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, link_received))
