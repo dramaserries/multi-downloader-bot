@@ -140,8 +140,7 @@ def progress_hook(d):
                 filename = filename.rsplit('.', 1)[0] + '.mp3'
 
         file_size_mb = os.path.getsize(filename) / (1024 * 1024)
-        
-if file_size_mb > 50:
+        if file_size_mb > 50:
  await msg.edit_text(f"❌ File too large!\nSize is {file_size_mb:.1f}MB. Telegram bot limit is 50MB.\nPlease choose 360p or MP3.", parse_mode='Markdown')
             os.remove(filename)
             return
