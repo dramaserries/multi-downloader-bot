@@ -113,9 +113,9 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if current_time - last_update_time >= 4:
                 last_update_time = current_time
                 
-                downloaded = d.get('downloaded_bytes', 0)
+downloaded = d.get('downloaded_bytes', 0)
 total = d.get('total_bytes') or d.get('total_bytes_estimate', 0)
-                speed = d.get('_speed_str', 'N/A').strip()
+speed = d.get('_speed_str', 'N/A').strip()
                 
                 if total > 0:
                     percent = int((downloaded / total) * 100)
