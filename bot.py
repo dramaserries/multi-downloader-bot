@@ -53,6 +53,7 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text("⚠️ Link not found. Please send the link again.")
         return
 
+    # YouTube ब्लॉक बायपास (iOS Client)
     base_opts = {
         'extractor_args': {'youtube': {'player_client': ['ios', 'mweb']}},
         'user_agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1',
@@ -102,64 +103,64 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
     last_update_time = 0
     loop = asyncio.get_running_loop()
 
-def progress_hook(d):
-    nonlocal last_update_time
-    if d['status'] == 'downloading':
-        current_time = time.time()
-        if current_time - last_update_time >= 4:
-            last_update_time = current_time
-            
-            downloaded = d.get('downloaded_bytes', 0)
-            total = d.get('total_bytes') or d.get('total_bytes_estimate', 0)
-            speed = d.get('_speed_str', 'N/A').strip()
-            
-            if total > 0:
-                percent = int((downloaded / total) * 100)
-                filled = int(percent / 10)
-                bar = "▰" * filled + "▱" * (10 - filled)
+    def progress_hook(d):
+        nonlocal last_update_time
+        if d['status'] == 'downloading':
+            current_time = time.time()
+            if current_time - last_update_time >= 4:
+                last_update_time = current_time
                 
-                text = (
-                    f"◈ NISHU AI • ENGINE v2.0\n"
-                    f"╭──────────────────────\n"
-                    f"│ 🎬 Quality: {quality_text}\n"
-                    f"│ 🚀 Speed: {speed}\n"
-                    f"│ 📊 Progress: {bar} {percent}%\n"
-                    f"╰──────────────────────\n"
-                    f"📥 *Downloading... Please wait.*"
-                )
-                asyncio.run_coroutine_threadsafe(msg.edit_text(text, parse_mode='Markdown'), loop)
+                downloaded = d.get('downloaded_bytes', 0)
+                total = d.get('total_bytes') or d.get('total_bytes_estimate', 0)
+speed = d.get('_speed_str', 'N/A').strip()
+                
+                if total > 0:
+                    percent = int((downloaded / total) * 100)
+                    filled = int(percent / 10)
+                    bar = "▰" * filled + "▱" * (10 - filled)
+                    
+                    text = (
+                        f"◈ NISHU AI • ENGINE v2.0\n"
+                        f"╭──────────────────────\n"
+                        f"│ 🎬 Quality: {quality_text}\n"
+                        f"│ 🚀 Speed: {speed}\n"
+                        f"│ 📊 Progress: {bar} {percent}%\n"
+                        f"╰──────────────────────\n"
+                        f"📥 *Downloading... Please wait.*"
+                    )
+                    asyncio.run_coroutine_threadsafe(msg.edit_text(text, parse_mode='Markdown'), loop)
 
-ydl_opts['progress_hooks'] = [progress_hook]
+    ydl_opts['progress_hooks'] = [progress_hook]
 
-try:
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info = ydl.extract_info(url, download=True)
-        filename = ydl.prepare_filename(info)
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=True)
+            filename = ydl.prepare_filename(info)
+            
+            if action == "dl_mp3":
+                filename = filename.rsplit('.', 1)[0] + '.mp3'
+
+        file_size_mb = os.path.getsize(filename) / (1024 * 1024)
+        
+        if file_size_mb > 50:
+            await msg.edit_text(f"❌ File too large!\nSize is {file_size_mb:.1f}MB. Telegram bot limit is 50MB.\nPlease choose 360p or MP3.", parse_mode='Markdown')
+            os.remove(filename)
+            return
+
+        await msg.edit_text("⚡️ Download Complete!\n📤 *Uploading to Telegram...*", parse_mode='Markdown')
         
         if action == "dl_mp3":
-            filename = filename.rsplit('.', 1)[0] + '.mp3'
-
-    file_size_mb = os.path.getsize(filename) / (1024 * 1024)
-    
-    if file_size_mb > 50:
-        await msg.edit_text(f"❌ File too large!\nSize is {file_size_mb:.1f}MB. Telegram bot limit is 50MB.\nPlease choose 360p or MP3.", parse_mode='Markdown')
+            with open(filename, 'rb') as audio:
+                await query.message.reply_audio(audio=audio, title=info.get('title', 'Audio'))
+        else:
+            with open(filename, 'rb') as video:
+                await query.message.reply_video(video=video, caption=f"✅ {quality_text} Downloaded Successfully!\n🤖 @NishuAI_Bot", parse_mode='Markdown')
+        
         os.remove(filename)
-        return
+        await msg.delete()
 
-    await msg.edit_text("⚡️ Download Complete!\n📤 *Uploading to Telegram...*", parse_mode='Markdown')
-    
-    if action == "dl_mp3":
-        with open(filename, 'rb') as audio:
-            await query.message.reply_audio(audio=audio, title=info.get('title', 'Audio'))
-    else:
-        with open(filename, 'rb') as video:
-            await query.message.reply_video(video=video, caption=f"✅ {quality_text} Downloaded Successfully!\n🤖 @NishuAI_Bot", parse_mode='Markdown')
-    
-    os.remove(filename)
-    await msg.delete()
-
-except Exception as e:
-    await msg.edit_text(f"❌ Download Failed:\n{str(e)[:100]}\n(The link might be invalid or blocked by YouTube)", parse_mode='Markdown')
+    except Exception as e:
+        await msg.edit_text(f"❌ Download Failed:\n{str(e)[:100]}\n(The link might be invalid or blocked by YouTube)", parse_mode='Markdown')
 
 def main():
     application = Application.builder().token(TOKEN).build()
