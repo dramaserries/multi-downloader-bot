@@ -102,35 +102,36 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
     last_update_time = 0
     loop = asyncio.get_running_loop()
 
-    def progress_hook(d):
-        nonlocal last_update_time
-        if d['status'] == 'downloading':
-            current_time = time.time()
-            if current_time - last_update_time >= 4:
-                last_update_time = current_time
+def progress_hook(d):
+    nonlocal last_update_time
+    if d['status'] == 'downloading':
+        current_time = time.time()
+        if current_time - last_update_time >= 4:
+            last_update_time = current_time
+            
+            downloaded = d.get('downloaded_bytes', 0)
+            total = d.get('total_bytes') or d.get('total_bytes_estimate', 0)
+            speed = d.get('_speed_str', 'N/A').strip()
+            
+            if total > 0:
+                percent = int((downloaded / total) * 100)
+                filled = int(percent / 10)
+                bar = "▰" * filled + "▱" * (10 - filled)
                 
-                downloaded = d.get('downloaded_bytes', 0)
-                total = d.get('total_bytes') or d.get('total_bytes_estimate', 0)
-                speed = d.get('_speed_str', 'N/A').strip()
-if total > 0:
-                    percent = int((downloaded / total) * 100)
-                    filled = int(percent / 10)
-                    bar = "▰" * filled + "▱" * (10 - filled)
-                    
-                    text = (
-                        f"◈ NISHU AI • ENGINE v2.0\n"
-                        f"╭──────────────────────\n"
-                        f"│ 🎬 Quality: {quality_text}\n"
-                        f"│ 🚀 Speed: {speed}\n"
-                        f"│ 📊 Progress: {bar} {percent}%\n"
-                        f"╰──────────────────────\n"
-                        f"📥 *Downloading... Please wait.*"
-                    )
-                    asyncio.run_coroutine_threadsafe(msg.edit_text(text, parse_mode='Markdown'), loop)
+                text = (
+                    f"◈ NISHU AI • ENGINE v2.0\n"
+                    f"╭──────────────────────\n"
+                    f"│ 🎬 Quality: {quality_text}\n"
+                    f"│ 🚀 Speed: {speed}\n"
+                    f"│ 📊 Progress: {bar} {percent}%\n"
+                    f"╰──────────────────────\n"
+                    f"📥 *Downloading... Please wait.*"
+                )
+                asyncio.run_coroutine_threadsafe(msg.edit_text(text, parse_mode='Markdown'), loop)
 
-    ydl_opts['progress_hooks'] = [progress_hook]
+ydl_opts['progress_hooks'] = [progress_hook]
 
-    try:
+try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=True)
             filename = ydl.prepare_filename(info)
