@@ -113,13 +113,12 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 downloaded = d.get('downloaded_bytes', 0)
                 total = d.get('total_bytes') or d.get('total_bytes_estimate', 0)
 speed = d.get('_speed_str', 'N/A').strip()
-                
-                if total > 0:
-                    percent = int((downloaded / total) * 100)
-                    filled = int(percent / 10)
-                    bar = "▰" * filled + "▱" * (10 - filled)
+if total > 0:
+ percent = int((downloaded / total) * 100)
+    filled = int(percent / 10)
+        bar = "▰" * filled + "▱" * (10 - filled)
                     
-                    text = (
+            text = (
                         f"◈ NISHU AI • ENGINE v2.0\n"
                         f"╭──────────────────────\n"
                         f"│ 🎬 Quality: {quality_text}\n"
