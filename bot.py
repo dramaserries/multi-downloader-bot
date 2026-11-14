@@ -13,9 +13,12 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, MessageHandler, filters, ContextTypes, CallbackQueryHandler
 
 # यहाँ अपना नया टोकन डालें
-TOKEN = "9103593916:AAEBVEzTSfbc-197R2GlUqfhyTW484EDG8M"
+TOKEN = "9103593916:AAEBVIzTSfoc-197R2G1UaFhyTM4E4DG8M"
 
 app = Flask(__name__)
+
+# User URLs store karne ke liye Global Dictionary (Bot restart hone par error se bachne ke liye)
+USER_URLS = {}
 
 @app.route('/')
 def home():
@@ -26,7 +29,8 @@ def run_flask():
 
 async def link_received(update: Update, context: ContextTypes.DEFAULT_TYPE):
     url = update.message.text
-    context.user_data['url'] = url
+    user_id = update.effective_user.id
+    USER_URLS[user_id] = url  # Link ko global dictionary me save karein
     
     keyboard = [
         [InlineKeyboardButton("🔥 1080p", callback_data="dl_1080"),
@@ -47,16 +51,17 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     
     action = query.data
-    url = context.user_data.get('url')
+    user_id = update.effective_user.id
+    url = USER_URLS.get(user_id)  # Global dictionary se link fetch karein
     
     if not url:
-        await query.edit_message_text("⚠️ Link not found. Please send the link again.")
+        await query.edit_message_text("⚠️ Link not found or session expired. Please send the link again.")
         return
 
-    # YouTube Block Bypass (iOS Client)
-        base_opts = {
-        'extractor_args': {'youtube': {'player_client': ['tv', 'mweb', 'web']}}, # TV और Mobile Web क्लाइंट सबसे कम ब्लॉक होते हैं
-        'impersonate': 'chrome', # यह सबसे बड़ा तोड़ है, यह खुद को क्रोम ब्राउज़र बताता है
+    # YouTube Block Bypass (iOS/Web Client)
+    base_opts = {
+        'extractor_args': {'youtube': {'player_client': ['ios', 'mweb', 'web']}},
+        'user_agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1',
         'outtmpl': 'media.%(ext)s',
         'quiet': True,
         'nocheckcertificate': True
