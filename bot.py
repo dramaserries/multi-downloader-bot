@@ -54,9 +54,9 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     # YouTube Block Bypass (iOS Client)
-    base_opts = {
-        'extractor_args': {'youtube': {'player_client': ['ios', 'mweb']}},
-        'user_agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1',
+        base_opts = {
+        'extractor_args': {'youtube': {'player_client': ['tv', 'mweb', 'web']}}, # TV और Mobile Web क्लाइंट सबसे कम ब्लॉक होते हैं
+        'impersonate': 'chrome', # यह सबसे बड़ा तोड़ है, यह खुद को क्रोम ब्राउज़र बताता है
         'outtmpl': 'media.%(ext)s',
         'quiet': True,
         'nocheckcertificate': True
