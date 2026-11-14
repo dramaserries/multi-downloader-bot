@@ -13,7 +13,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, MessageHandler, filters, ContextTypes, CallbackQueryHandler
 
 # यहाँ अपना नया टोकन डालें
-TOKEN = "9103593916:AAHb0TpBBkCkzNi1Q2xe8kPhsGZ15B9t4x4"
+TOKEN = "9103593916:AAEBVEzTSfbc-197R2GlUqfhyTW484EDG8M"
 
 app = Flask(__name__)
 
