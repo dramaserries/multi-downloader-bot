@@ -15,7 +15,7 @@ from telegram.ext import Application, MessageHandler, filters, ContextTypes, Cal
 # यहाँ अपना नया टोकन डालें
 TOKEN = "9103593916:AAHb0TpBBkCkzNi1Q2xe8kPhsGZ15B9t4x4"
 
-app = Flask(name)
+app = Flask(__name__)
 
 @app.route('/')
 def home():
@@ -112,7 +112,7 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 
                 downloaded = d.get('downloaded_bytes', 0)
                 total = d.get('total_bytes') or d.get('total_bytes_estimate', 0)
-speed = d.get('_speed_str', 'N/A').strip()
+                speed = d.get('_speed_str', 'N/A').strip()
                 
                 if total > 0:
                     percent = int((downloaded / total) * 100)
