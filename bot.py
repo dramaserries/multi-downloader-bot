@@ -58,10 +58,10 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text("⚠️ Link not found or session expired. Please send the link again.")
         return
 
-    # YouTube Block Bypass (iOS/Web Client)
+   # YouTube Block Bypass with Cookies
     base_opts = {
         'extractor_args': {'youtube': {'player_client': ['ios', 'mweb', 'web']}},
-        'user_agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1',
+        'cookiefile': 'cookies.txt',  # <-- यह लाइन जोड़नी है
         'outtmpl': 'media.%(ext)s',
         'quiet': True,
         'nocheckcertificate': True
