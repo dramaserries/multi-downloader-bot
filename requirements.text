@@ -1,5 +1,7 @@
+# YouTube Block Bypass for Mobile & Cloud Servers
     base_opts = {
-        'extractor_args': {'youtube': {'player_client': ['android', 'ios']}}, # मोबाइल क्लाइंट
+        'extractor_args': {'youtube': {'player_client': ['android', 'mweb', 'web']}},
+        'impersonate': 'chrome',  # यह yt-dlp को असली ब्राउज़र की तरह दिखाता है
         'outtmpl': 'media.%(ext)s',
         'quiet': True,
         'nocheckcertificate': True
