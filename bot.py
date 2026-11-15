@@ -35,7 +35,7 @@ async def link_received(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reply_markup = InlineKeyboardMarkup(keyboard)
     
     await update.message.reply_text(
-        "◈ NISHU AI DOWNLOADER (Cobalt Engine)\n👇 Please select your download quality:",
+        "◈ NISHU AI DOWNLOADER\n👇 Please select your download quality:",
         reply_markup=reply_markup,
         parse_mode='Markdown'
     )
@@ -53,50 +53,29 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     msg = await query.edit_message_text(
-        "🚀 *Fetching direct link via Cobalt API...*",
+        "🚀 *Processing download via Fast Engine...*",
         parse_mode='Markdown'
     )
 
-    quality_map = {
-        "dl_1080": "1080",
-        "dl_720": "720",
-        "dl_360": "360",
-        "dl_mp3": "720"
-    }
-    
     is_audio = (action == "dl_mp3")
-    selected_quality = quality_map.get(action, "720")
 
-    api_url = "https://api.cobalt.tools/api/json"
-    headers = {
-        "Accept": "application/json",
-        "Content-Type": "application/json",
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
-    }
-    payload = {
-        "url": url,
-        "vQuality": selected_quality,
-        "isAudioOnly": is_audio
-    }
+    # Free public downloader API endpoint
+    api_url = f"https://api.siputzx.my.id/api/d/ytmp4?url={url}"
+    if is_audio:
+        api_url = f"https://api.siputzx.my.id/api/d/ytmp3?url={url}"
 
     try:
-        response = requests.post(api_url, json=payload, headers=headers, timeout=30)
-        
-        # Debugging ke liye response print karein
-        print("Cobalt Response Text:", response.text)
+        response = requests.get(api_url, timeout=30)
+        res_data = response.json()
 
-        try:
-            res_data = response.json()
-        except Exception:
-            await msg.edit_text("❌ Cobalt API returned an invalid format. Try another link.", parse_mode='Markdown')
-            return
-
-        status = res_data.get("status")
-
-        if status in ["stream", "redirect"]:
-            download_url = res_data.get("url")
+        if res_data.get("status") and "data" in res_data:
+            download_url = res_data["data"].get("dl") or res_data["data"].get("audio")
             
-            await msg.edit_text("⚡️ Link fetched! Downloading file to send...", parse_mode='Markdown')
+            if not download_url:
+                await msg.edit_text("❌ Could not fetch download link. Try another video.", parse_mode='Markdown')
+                return
+
+            await msg.edit_text("⚡️ Link fetched! Downloading file...", parse_mode='Markdown')
 
             file_response = requests.get(download_url, stream=True)
             filename = "media.mp3" if is_audio else "media.mp4"
@@ -120,14 +99,13 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     await query.message.reply_audio(audio=audio, title="Audio Download")
             else:
                 with open(filename, 'rb') as video:
-                    await query.message.reply_video(video=video, caption="✅ Downloaded Successfully via Cobalt!\n🤖 @NishuAI_Bot", parse_mode='Markdown')
+                    await query.message.reply_video(video=video, caption="✅ Downloaded Successfully!\n🤖 @NishuAI_Bot", parse_mode='Markdown')
 
             os.remove(filename)
             await msg.delete()
 
         else:
-            err_text = res_data.get("text", "Unknown error from Cobalt API")
-            await msg.edit_text(f"❌ Download Failed:\n{err_text}", parse_mode='Markdown')
+            await msg.edit_text("❌ Download Failed: API responded with error.", parse_mode='Markdown')
 
     except Exception as e:
         await msg.edit_text(f"❌ Error:\n{str(e)[:100]}", parse_mode='Markdown')
@@ -135,7 +113,7 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def main():
     application = Application.builder().token(TOKEN).build()
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, link_received))
-    application.add_handler(CallbackQueryHandler(button_script := button_click))
+    application.add_handler(CallbackQueryHandler(button_click))
     application.run_polling()
 
 if __name__ == '__main__':
