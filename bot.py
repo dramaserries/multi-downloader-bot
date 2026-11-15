@@ -12,12 +12,11 @@ TOKEN = "9103593916:AAGVgk8FHYwxGdXgFC047KycAIWamTMSps8"
 
 app = Flask(__name__)
 
-# User URLs store karne ke liye Global Dictionary
 USER_URLS = {}
 
 @app.route('/')
 def home():
-    return "NishuAI Bot is alive with Cobalt API!"
+    return "NishuAI Bot is alive!"
 
 def run_flask():
     app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 8080)))
@@ -58,18 +57,16 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode='Markdown'
     )
 
-    # Quality mapping for Cobalt API
     quality_map = {
         "dl_1080": "1080",
         "dl_720": "720",
         "dl_360": "360",
-        "dl_mp3": "720" # MP3 ke liye bhi video request karke audio extract hota hai ya direct audio format
+        "dl_mp3": "720"
     }
     
     is_audio = (action == "dl_mp3")
     selected_quality = quality_map.get(action, "720")
 
-    # Cobalt API Request Payload
     api_url = "https://api.cobalt.tools/api/json"
     headers = {
         "Accept": "application/json",
@@ -82,9 +79,14 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
     }
 
     try:
-        # API Call to Cobalt
         response = requests.post(api_url, json=payload, headers=headers, timeout=30)
-        res_data = response.json()
+        
+        # Safe JSON parsing to prevent crash
+        try:
+            res_data = response.json()
+        except Exception:
+            await msg.edit_text("❌ Cobalt API returned an invalid response. Please try another link.", parse_mode='Markdown')
+            return
 
         status = res_data.get("status")
 
@@ -93,7 +95,6 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
             
             await msg.edit_text("⚡️ Link fetched! Downloading file to send...", parse_mode='Markdown')
 
-            # Download file locally temporarily to upload to Telegram
             file_response = requests.get(download_url, stream=True)
             filename = "media.mp3" if is_audio else "media.mp4"
             
