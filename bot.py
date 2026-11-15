@@ -1,13 +1,8 @@
 import os
-import imageio_ffmpeg
-
-# FFmpeg Setup
-os.environ["PATH"] += os.pathsep + os.path.dirname(imageio_ffmpeg.get_ffmpeg_exe())
-
 import time
 import asyncio
 import threading
-import yt_dlp
+import requests
 from flask import Flask
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, MessageHandler, filters, ContextTypes, CallbackQueryHandler
@@ -22,7 +17,7 @@ USER_URLS = {}
 
 @app.route('/')
 def home():
-    return "NishuAI Bot is alive!"
+    return "NishuAI Bot is alive with Cobalt API!"
 
 def run_flask():
     app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 8080)))
@@ -35,13 +30,13 @@ async def link_received(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
         [InlineKeyboardButton("🔥 1080p", callback_data="dl_1080"),
          InlineKeyboardButton("⚡️ 720p", callback_data="dl_720")],
-        [InlineKeyboardButton("📱 360p (Small Size)", callback_data="dl_360"),
+        [InlineKeyboardButton("📱 360p", callback_data="dl_360"),
          InlineKeyboardButton("🎵 Audio (MP3)", callback_data="dl_mp3")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
     await update.message.reply_text(
-        "◈ NISHU AI DOWNLOADER\n👇 Please select your download quality:",
+        "◈ NISHU AI DOWNLOADER (Cobalt Engine)\n👇 Please select your download quality:",
         reply_markup=reply_markup,
         parse_mode='Markdown'
     )
@@ -58,114 +53,80 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text("⚠️ Link not found or session expired. Please send the link again.")
         return
 
-    # YouTube Block Bypass with Cookies & Format Fix
-    base_opts = {
-        'extractor_args': {'youtube': {'player_client': ['android', 'web']}},
-        'cookiefile': 'cookies.txt',  # <-- YouTube Bot Detection से बचने के लिए कुकीज़ फाइल
-        'outtmpl': 'media.%(ext)s',
-        'quiet': True,
-        'nocheckcertificate': True
-    }
-
-    if action == "dl_1080":
-        ydl_opts = {**base_opts, 'format': 'best[height<=1080]/best'}
-        quality_text = "1080p"
-    elif action == "dl_720":
-        ydl_opts = {**base_opts, 'format': 'best[height<=720]/best'}
-        quality_text = "720p"
-    elif action == "dl_360":
-        ydl_opts = {
-            **base_opts, 
-            'format': 'best[height<=360]/best',
-            'postprocessor_args': ['-crf', '32', '-preset', 'ultrafast'],
-        }
-        quality_text = "360p (Compressed)"
-    elif action == "dl_mp3":
-        ydl_opts = {
-            **base_opts,
-            'format': 'bestaudio/best',
-            'postprocessors': [{
-                'key': 'FFmpegExtractAudio',
-                'preferredcodec': 'mp3',
-                'preferredquality': '64',
-            }],
-        }
-        quality_text = "MP3 (64kbps)"
-    else:
-        return
-
     msg = await query.edit_message_text(
-        f"◈ NISHU AI • ENGINE v2.0\n"
-        f"╭──────────────────────\n"
-        f"│ 🎬 Quality: {quality_text}\n"
-        f"│ ⚡️ Status: Initializing...\n"
-        f"│ 📊 Progress: ▱▱▱▱▱▱▱▱▱▱ 0%\n"
-        f"╰──────────────────────\n"
-        f"🚀 *Connecting to servers...*",
+        "🚀 *Fetching direct link via Cobalt API...*",
         parse_mode='Markdown'
     )
 
-    last_update_time = 0
-    loop = asyncio.get_running_loop()
+    # Quality mapping for Cobalt API
+    quality_map = {
+        "dl_1080": "1080",
+        "dl_720": "720",
+        "dl_360": "360",
+        "dl_mp3": "720" # MP3 ke liye bhi video request karke audio extract hota hai ya direct audio format
+    }
+    
+    is_audio = (action == "dl_mp3")
+    selected_quality = quality_map.get(action, "720")
 
-    def progress_hook(d):
-        nonlocal last_update_time
-        if d['status'] == 'downloading':
-            current_time = time.time()
-            if current_time - last_update_time >= 4:
-                last_update_time = current_time
-                
-                downloaded = d.get('downloaded_bytes', 0)
-                total = d.get('total_bytes') or d.get('total_bytes_estimate', 0)
-                speed = d.get('_speed_str', 'N/A').strip()
-                
-                if total > 0:
-                    percent = int((downloaded / total) * 100)
-                    filled = int(percent / 10)
-                    bar = "▰" * filled + "▱" * (10 - filled)
-                    
-                    text = (
-                        f"◈ NISHU AI • ENGINE v2.0\n"
-                        f"╭──────────────────────\n"
-                        f"│ 🎬 Quality: {quality_text}\n"
-                        f"│ 🚀 Speed: {speed}\n"
-                        f"│ 📊 Progress: {bar} {percent}%\n"
-                        f"╰──────────────────────\n"
-                        f"📥 *Downloading... Please wait.*"
-                    )
-                    asyncio.run_coroutine_threadsafe(msg.edit_text(text, parse_mode='Markdown'), loop)
-
-    ydl_opts['progress_hooks'] = [progress_hook]
+    # Cobalt API Request Payload
+    api_url = "https://api.cobalt.tools/api/json"
+    headers = {
+        "Accept": "application/json",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "url": url,
+        "videoQuality": selected_quality,
+        "downloadMode": "audio" if is_audio else "auto"
+    }
 
     try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=True)
-            filename = ydl.prepare_filename(info)
+        # API Call to Cobalt
+        response = requests.post(api_url, json=payload, headers=headers, timeout=30)
+        res_data = response.json()
+
+        status = res_data.get("status")
+
+        if status in ["stream", "redirect"]:
+            download_url = res_data.get("url")
             
-            if action == "dl_mp3":
-                filename = filename.rsplit('.', 1)[0] + '.mp3'
+            await msg.edit_text("⚡️ Link fetched! Downloading file to send...", parse_mode='Markdown')
 
-        file_size_mb = os.path.getsize(filename) / (1024 * 1024)
-        
-        if file_size_mb > 50:
-            await msg.edit_text(f"❌ File too large!\nSize is {file_size_mb:.1f}MB. Telegram bot limit is 50MB.\nPlease choose 360p or MP3.", parse_mode='Markdown')
+            # Download file locally temporarily to upload to Telegram
+            file_response = requests.get(download_url, stream=True)
+            filename = "media.mp3" if is_audio else "media.mp4"
+            
+            with open(filename, "wb") as f:
+                for chunk in file_response.iter_content(chunk_size=8192):
+                    if chunk:
+                        f.write(chunk)
+
+            file_size_mb = os.path.getsize(filename) / (1024 * 1024)
+
+            if file_size_mb > 50:
+                await msg.edit_text(f"❌ File too large ({file_size_mb:.1f}MB). Telegram bot limit is 50MB.", parse_mode='Markdown')
+                os.remove(filename)
+                return
+
+            await msg.edit_text("📤 *Uploading to Telegram...*", parse_mode='Markdown')
+
+            if is_audio:
+                with open(filename, 'rb') as audio:
+                    await query.message.reply_audio(audio=audio, title="Audio Download")
+            else:
+                with open(filename, 'rb') as video:
+                    await query.message.reply_video(video=video, caption="✅ Downloaded Successfully via Cobalt!\n🤖 @NishuAI_Bot", parse_mode='Markdown')
+
             os.remove(filename)
-            return
+            await msg.delete()
 
-        await msg.edit_text("⚡️ Download Complete!\n📤 *Uploading to Telegram...*", parse_mode='Markdown')
-        
-        if action == "dl_mp3":
-            with open(filename, 'rb') as audio:
-                await query.message.reply_audio(audio=audio, title=info.get('title', 'Audio'))
         else:
-            with open(filename, 'rb') as video:
-                await query.message.reply_video(video=video, caption=f"✅ {quality_text} Downloaded Successfully!\n🤖 @NishuAI_Bot", parse_mode='Markdown')
-        
-        os.remove(filename)
-        await msg.delete()
+            err_text = res_data.get("text", "Unknown error from Cobalt API")
+            await msg.edit_text(f"❌ Download Failed:\n{err_text}", parse_mode='Markdown')
 
     except Exception as e:
-        await msg.edit_text(f"❌ Download Failed:\n{str(e)[:100]}\n(The link might be invalid or blocked by YouTube)", parse_mode='Markdown')
+        await msg.edit_text(f"❌ Error:\n{str(e)[:100]}", parse_mode='Markdown')
 
 def main():
     application = Application.builder().token(TOKEN).build()
