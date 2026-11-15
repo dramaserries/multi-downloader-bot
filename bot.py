@@ -12,7 +12,7 @@ from flask import Flask
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, MessageHandler, filters, ContextTypes, CallbackQueryHandler
 
-# 🛑 यहाँ अपना नया बॉट टोकन डालें जो आपने BotFather से लिया है
+# अपना बॉट टोकन यहाँ डालें
 TOKEN = "9103593916:AAGVgk8FHYwxGdXgFC047KycAIWamTMSps8"
 
 app = Flask(__name__)
@@ -58,25 +58,24 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text("⚠️ Link not found or session expired. Please send the link again.")
         return
 
-   # YouTube Block Bypass with Cookies
+    # YouTube Block Bypass & Format Fix (बिना किसी एरर के चलने वाला बेस्ट ऑप्शन)
     base_opts = {
-        'extractor_args': {'youtube': {'player_client': ['ios', 'mweb', 'web']}},
-        'cookiefile': 'cookies.txt',  # <-- यह लाइन जोड़नी है
+        'extractor_args': {'youtube': {'player_client': ['android', 'web']}},
         'outtmpl': 'media.%(ext)s',
         'quiet': True,
         'nocheckcertificate': True
     }
 
     if action == "dl_1080":
-        ydl_opts = {**base_opts, 'format': 'bestvideo[height<=1080]+bestaudio/best[height<=1080]'}
+        ydl_opts = {**base_opts, 'format': 'best[height<=1080]/best'}
         quality_text = "1080p"
     elif action == "dl_720":
-        ydl_opts = {**base_opts, 'format': 'bestvideo[height<=720]+bestaudio/best[height<=720]'}
+        ydl_opts = {**base_opts, 'format': 'best[height<=720]/best'}
         quality_text = "720p"
     elif action == "dl_360":
         ydl_opts = {
             **base_opts, 
-            'format': 'bestvideo[height<=360]+bestaudio/best[height<=360]',
+            'format': 'best[height<=360]/best',
             'postprocessor_args': ['-crf', '32', '-preset', 'ultrafast'],
         }
         quality_text = "360p (Compressed)"
