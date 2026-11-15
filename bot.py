@@ -58,9 +58,10 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text("⚠️ Link not found or session expired. Please send the link again.")
         return
 
-    # YouTube Block Bypass & Format Fix (बिना किसी एरर के चलने वाला बेस्ट ऑप्शन)
+    # YouTube Block Bypass with Cookies & Format Fix
     base_opts = {
         'extractor_args': {'youtube': {'player_client': ['android', 'web']}},
+        'cookiefile': 'cookies.txt',  # <-- YouTube Bot Detection से बचने के लिए कुकीज़ फाइल
         'outtmpl': 'media.%(ext)s',
         'quiet': True,
         'nocheckcertificate': True
