@@ -1,8 +1,13 @@
 import os
+import imageio_ffmpeg
+
+# FFmpeg Setup for Render
+os.environ["PATH"] += os.pathsep + os.path.dirname(imageio_ffmpeg.get_ffmpeg_exe())
+
 import time
 import asyncio
 import threading
-import requests
+import yt_dlp
 from flask import Flask
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, MessageHandler, filters, ContextTypes, CallbackQueryHandler
@@ -26,16 +31,20 @@ async def link_received(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     USER_URLS[user_id] = url
     
-    keyboard = [
-        [InlineKeyboardButton("🔥 1080p", callback_data="dl_1080"),
-         InlineKeyboardButton("⚡️ 720p", callback_data="dl_720")],
-        [InlineKeyboardButton("📱 360p", callback_data="dl_360"),
-         InlineKeyboardButton("🎵 Audio (MP3)", callback_data="dl_mp3")]
-    ]
+    # Check if link is Instagram or YouTube
+    if "instagram.com" in url:
+        keyboard = [[InlineKeyboardButton("📥 Download Instagram Reel/Video", callback_data="dl_insta")]]
+    else:
+        keyboard = [
+            [InlineKeyboardButton("🔥 YouTube 1080p", callback_data="dl_1080"),
+             InlineKeyboardButton("⚡️ YouTube 720p", callback_data="dl_720")],
+            [InlineKeyboardButton("🎵 YouTube Audio (MP3)", callback_data="dl_mp3")]
+        ]
+        
     reply_markup = InlineKeyboardMarkup(keyboard)
     
     await update.message.reply_text(
-        "◈ NISHU AI DOWNLOADER\n👇 Please select your download quality:",
+        "◈ NISHU AI DOWNLOADER\n👇 Click below to download:",
         reply_markup=reply_markup,
         parse_mode='Markdown'
     )
@@ -53,62 +62,66 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     msg = await query.edit_message_text(
-        "🚀 *Processing download via Fast Engine...*",
+        "🚀 *Processing download, please wait...*",
         parse_mode='Markdown'
     )
 
-    is_audio = (action == "dl_mp3")
-
-    # Free public downloader API endpoint
-    api_url = f"https://api.siputzx.my.id/api/d/ytmp4?url={url}"
-    if is_audio:
-        api_url = f"https://api.siputzx.my.id/api/d/ytmp3?url={url}"
-
     try:
-        response = requests.get(api_url, timeout=30)
-        res_data = response.json()
-
-        if res_data.get("status") and "data" in res_data:
-            download_url = res_data["data"].get("dl") or res_data["data"].get("audio")
-            
-            if not download_url:
-                await msg.edit_text("❌ Could not fetch download link. Try another video.", parse_mode='Markdown')
-                return
-
-            await msg.edit_text("⚡️ Link fetched! Downloading file...", parse_mode='Markdown')
-
-            file_response = requests.get(download_url, stream=True)
-            filename = "media.mp3" if is_audio else "media.mp4"
-            
-            with open(filename, "wb") as f:
-                for chunk in file_response.iter_content(chunk_size=8192):
-                    if chunk:
-                        f.write(chunk)
-
-            file_size_mb = os.path.getsize(filename) / (1024 * 1024)
-
-            if file_size_mb > 50:
-                await msg.edit_text(f"❌ File too large ({file_size_mb:.1f}MB). Telegram limit is 50MB.", parse_mode='Markdown')
-                os.remove(filename)
-                return
-
-            await msg.edit_text("📤 *Uploading to Telegram...*", parse_mode='Markdown')
-
-            if is_audio:
-                with open(filename, 'rb') as audio:
-                    await query.message.reply_audio(audio=audio, title="Audio Download")
-            else:
-                with open(filename, 'rb') as video:
-                    await query.message.reply_video(video=video, caption="✅ Downloaded Successfully!\n🤖 @NishuAI_Bot", parse_mode='Markdown')
-
-            os.remove(filename)
-            await msg.delete()
-
+        if action == "dl_insta":
+            ydl_opts = {
+                'outtmpl': 'media.%(ext)s',
+                'quiet': True,
+                'nocheckcertificate': True
+            }
+        elif action == "dl_mp3":
+            ydl_opts = {
+                'extractor_args': {'youtube': {'player_client': ['android']}},
+                'outtmpl': 'media.%(ext)s',
+                'format': 'bestaudio/best',
+                'postprocessors': [{
+                    'key': 'FFmpegExtractAudio',
+                    'preferredcodec': 'mp3',
+                    'preferredquality': '128',
+                }],
+                'quiet': True
+            }
         else:
-            await msg.edit_text("❌ Download Failed: API responded with error.", parse_mode='Markdown')
+            q = "1080" if action == "dl_1080" else "720"
+            ydl_opts = {
+                'extractor_args': {'youtube': {'player_client': ['android']}},
+                'outtmpl': 'media.%(ext)s',
+                'format': f'best[height<={q}]/best',
+                'quiet': True
+            }
+
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=True)
+            filename = ydl.prepare_filename(info)
+            
+            if action == "dl_mp3":
+                filename = filename.rsplit('.', 1)[0] + '.mp3'
+
+        file_size_mb = os.path.getsize(filename) / (1024 * 1024)
+
+        if file_size_mb > 50:
+            await msg.edit_text(f"❌ File too large ({file_size_mb:.1f}MB). Telegram limit is 50MB.")
+            os.remove(filename)
+            return
+
+        await msg.edit_text("📤 *Uploading to Telegram...*", parse_mode='Markdown')
+
+        if action == "dl_mp3":
+            with open(filename, 'rb') as audio:
+                await query.message.reply_audio(audio=audio, title=info.get('title', 'Audio'))
+        else:
+            with open(filename, 'rb') as video:
+                await query.message.reply_video(video=video, caption="✅ Downloaded Successfully!\n🤖 @NishuAI_Bot", parse_mode='Markdown')
+
+        os.remove(filename)
+        await msg.delete()
 
     except Exception as e:
-        await msg.edit_text(f"❌ Error:\n{str(e)[:100]}", parse_mode='Markdown')
+        await msg.edit_text(f"❌ Download Failed:\n{str(e)[:150]}", parse_mode='Markdown')
 
 def main():
     application = Application.builder().token(TOKEN).build()
