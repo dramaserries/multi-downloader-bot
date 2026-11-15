@@ -12,12 +12,12 @@ from flask import Flask
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, MessageHandler, filters, ContextTypes, CallbackQueryHandler
 
-# यहाँ अपना नया टोकन डालें
-TOKEN = "9103593916:AAEBVIzTSfoc-197R2G1UaFhyTM4E4DG8M"
+# 🛑 यहाँ अपना नया बॉट टोकन डालें जो आपने BotFather से लिया है
+TOKEN = "9103593916:AAGVgk8FHYwxGdXgFC047KycAIWamTMSps8"
 
 app = Flask(__name__)
 
-# User URLs store karne ke liye Global Dictionary (Bot restart hone par error se bachne ke liye)
+# User URLs store karne ke liye Global Dictionary
 USER_URLS = {}
 
 @app.route('/')
@@ -30,7 +30,7 @@ def run_flask():
 async def link_received(update: Update, context: ContextTypes.DEFAULT_TYPE):
     url = update.message.text
     user_id = update.effective_user.id
-    USER_URLS[user_id] = url  # Link ko global dictionary me save karein
+    USER_URLS[user_id] = url
     
     keyboard = [
         [InlineKeyboardButton("🔥 1080p", callback_data="dl_1080"),
@@ -52,7 +52,7 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     action = query.data
     user_id = update.effective_user.id
-    url = USER_URLS.get(user_id)  # Global dictionary se link fetch karein
+    url = USER_URLS.get(user_id)
     
     if not url:
         await query.edit_message_text("⚠️ Link not found or session expired. Please send the link again.")
