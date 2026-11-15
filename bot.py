@@ -70,22 +70,25 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
     api_url = "https://api.cobalt.tools/api/json"
     headers = {
         "Accept": "application/json",
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
     }
     payload = {
         "url": url,
-        "videoQuality": selected_quality,
-        "downloadMode": "audio" if is_audio else "auto"
+        "vQuality": selected_quality,
+        "isAudioOnly": is_audio
     }
 
     try:
         response = requests.post(api_url, json=payload, headers=headers, timeout=30)
         
-        # Safe JSON parsing to prevent crash
+        # Debugging ke liye response print karein
+        print("Cobalt Response Text:", response.text)
+
         try:
             res_data = response.json()
         except Exception:
-            await msg.edit_text("❌ Cobalt API returned an invalid response. Please try another link.", parse_mode='Markdown')
+            await msg.edit_text("❌ Cobalt API returned an invalid format. Try another link.", parse_mode='Markdown')
             return
 
         status = res_data.get("status")
@@ -106,7 +109,7 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
             file_size_mb = os.path.getsize(filename) / (1024 * 1024)
 
             if file_size_mb > 50:
-                await msg.edit_text(f"❌ File too large ({file_size_mb:.1f}MB). Telegram bot limit is 50MB.", parse_mode='Markdown')
+                await msg.edit_text(f"❌ File too large ({file_size_mb:.1f}MB). Telegram limit is 50MB.", parse_mode='Markdown')
                 os.remove(filename)
                 return
 
@@ -132,7 +135,7 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def main():
     application = Application.builder().token(TOKEN).build()
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, link_received))
-    application.add_handler(CallbackQueryHandler(button_click))
+    application.add_handler(CallbackQueryHandler(button_script := button_click))
     application.run_polling()
 
 if __name__ == '__main__':
