@@ -53,16 +53,19 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text("⚠️ Link not found. Please send the link again.")
         return
 
-    # YouTube और Instagram ब्लॉक बायपास और Cookies सेटअप
+    # कुकीज़ को सिर्फ तब इस्तेमाल करें जब लिंक इंस्टाग्राम का हो
+    cookie_option = {}
+    if "instagram.com" in url:
+        cookie_option = {'cookiefile': 'cookies.txt'}
+
     base_opts = {
+        **cookie_option,
         'extractor_args': {'youtube': {'player_client': ['android', 'ios']}},
-        'cookiefile': 'cookies.txt',  # यह लाइन Instagram/YouTube के लिए ज़रूरी है
         'outtmpl': 'media.%(ext)s',
         'quiet': True,
         'nocheckcertificate': True
     }
 
-    # यहाँ फॉर्मेट ठीक किया गया है (अगर 1080p नहीं है, तो बेस्ट अवेलेबल लेगा)
     if action == "dl_1080":
         ydl_opts = {**base_opts, 'format': 'bestvideo[height<=1080]+bestaudio/best'}
         quality_text = "1080p"
@@ -161,7 +164,9 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await msg.delete()
 
     except Exception as e:
-        await msg.edit_text(f"❌ **Download Failed:**\n`{str(e)[:100]}`\n(The link might be invalid, blocked, or cookies expired)", parse_mode='Markdown')
+        # यहाँ से Markdown हटा दिया गया है ताकि कुकीज़ के स्पेशल कैरेक्टर से एरर न आए
+        error_msg = f"❌ Download Failed:\n{str(e)[:100]}\n(The link might be invalid, blocked, or cookies expired)"
+        await msg.edit_text(error_msg)
 
 def main():
     application = Application.builder().token(TOKEN).build()
