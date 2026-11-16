@@ -1,14 +1,21 @@
 import os
+import imageio_ffmpeg
+
+# FFmpeg Setup
+os.environ["PATH"] += os.pathsep + os.path.dirname(imageio_ffmpeg.get_ffmpeg_exe())
+
+import time
+import asyncio
 import threading
-import requests
+import yt_dlp
 from flask import Flask
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, MessageHandler, filters, ContextTypes, CallbackQueryHandler
 
+# यहाँ अपना नया टोकन डालें
 TOKEN = "9103593916:AAGVgk8FHYwxGdXgFC047KycAIWamTMSps8"
 
 app = Flask(__name__)
-USER_URLS = {}
 
 @app.route('/')
 def home():
@@ -19,95 +26,141 @@ def run_flask():
 
 async def link_received(update: Update, context: ContextTypes.DEFAULT_TYPE):
     url = update.message.text
-    user_id = update.effective_user.id
-    USER_URLS[user_id] = url
+    context.user_data['url'] = url
     
-    if "instagram.com" in url:
-        keyboard = [[InlineKeyboardButton("📥 Download Instagram Reel/Video", callback_data="dl_insta")]]
-    else:
-        keyboard = [
-            [InlineKeyboardButton("🔥 YouTube 1080p", callback_data="dl_1080"),
-             InlineKeyboardButton("⚡️ YouTube 720p", callback_data="dl_720")],
-            [InlineKeyboardButton("🎵 YouTube Audio (MP3)", callback_data="dl_mp3")]
-        ]
-        
+    keyboard = [
+        [InlineKeyboardButton("🔥 1080p", callback_data="dl_1080"),
+         InlineKeyboardButton("⚡ 720p", callback_data="dl_720")],
+        [InlineKeyboardButton("📱 360p (Small Size)", callback_data="dl_360"),
+         InlineKeyboardButton("🎵 Audio (MP3)", callback_data="dl_mp3")]
+    ]
     reply_markup = InlineKeyboardMarkup(keyboard)
-    await update.message.reply_text("👇 Click below to start downloading:", reply_markup=reply_markup)
+    
+    await update.message.reply_text(
+        "◈ **NISHU AI DOWNLOADER**\n👇 Please select your download quality:",
+        reply_markup=reply_markup,
+        parse_mode='Markdown'
+    )
 
 async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     
     action = query.data
-    user_id = update.effective_user.id
-    url = USER_URLS.get(user_id)
+    url = context.user_data.get('url')
     
     if not url:
-        await query.edit_message_text("⚠️ Link expired. Please send the link again.")
+        await query.edit_message_text("⚠️ Link not found. Please send the link again.")
         return
 
-    msg = await query.edit_message_text("🚀 Fetching download link via Fast API...")
-
-    is_audio = (action == "dl_mp3")
-    quality = "1080" if action == "dl_1080" else "720"
-
-    # Using stable public Cobalt API v10/json
-    api_url = "https://api.cobalt.tools/api/json"
-    headers = {
-        "Accept": "application/json",
-        "Content-Type": "application/json",
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+    # YouTube और Instagram ब्लॉक बायपास और Cookies सेटअप
+    base_opts = {
+        'extractor_args': {'youtube': {'player_client': ['android', 'ios']}},
+        'cookiefile': 'cookies.txt',  # यह लाइन Instagram/YouTube के लिए ज़रूरी है
+        'outtmpl': 'media.%(ext)s',
+        'quiet': True,
+        'nocheckcertificate': True
     }
-    payload = {
-        "url": url,
-        "vQuality": quality,
-        "isAudioOnly": is_audio
-    }
+
+    if action == "dl_1080":
+        ydl_opts = {**base_opts, 'format': 'bestvideo[height<=1080]+bestaudio/best[height<=1080]'}
+        quality_text = "1080p"
+    elif action == "dl_720":
+        ydl_opts = {**base_opts, 'format': 'bestvideo[height<=720]+bestaudio/best[height<=720]'}
+        quality_text = "720p"
+    elif action == "dl_360":
+        ydl_opts = {
+            **base_opts, 
+            'format': 'bestvideo[height<=360]+bestaudio/best[height<=360]',
+            'postprocessor_args': ['-crf', '32', '-preset', 'ultrafast'],
+        }
+        quality_text = "360p (Compressed)"
+    elif action == "dl_mp3":
+        ydl_opts = {
+            **base_opts,
+            'format': 'bestaudio/best',
+            'postprocessors': [{
+                'key': 'FFmpegExtractAudio',
+                'preferredcodec': 'mp3',
+                'preferredquality': '64',
+            }],
+        }
+        quality_text = "MP3 (64kbps)"
+    else:
+        return
+
+    msg = await query.edit_message_text(
+        f"◈ **NISHU AI • ENGINE v2.0**\n"
+        f"╭──────────────────────\n"
+        f"│ 🎬 **Quality:** `{quality_text}`\n"
+        f"│ ⚡ Status: `Initializing...`\n"
+        f"│ 📊 Progress: ▱▱▱▱▱▱▱▱▱▱ 0%\n"
+        f"╰──────────────────────\n"
+        f"🚀 *Connecting to servers...*",
+        parse_mode='Markdown'
+    )
+
+    last_update_time = 0
+    loop = asyncio.get_running_loop()
+
+    def progress_hook(d):
+        nonlocal last_update_time
+        if d['status'] == 'downloading':
+            current_time = time.time()
+            if current_time - last_update_time >= 4:
+                last_update_time = current_time
+                
+                downloaded = d.get('downloaded_bytes', 0)
+                total = d.get('total_bytes') or d.get('total_bytes_estimate', 0)
+                speed = d.get('_speed_str', 'N/A').strip()
+                
+                if total > 0:
+                    percent = int((downloaded / total) * 100)
+                    filled = int(percent / 10)
+                    bar = "▰" * filled + "▱" * (10 - filled)
+                    
+                    text = (
+                        f"◈ **NISHU AI • ENGINE v2.0**\n"
+                        f"╭──────────────────────\n"
+                        f"│ 🎬 **Quality:** `{quality_text}`\n"
+                        f"│ 🚀 Speed: `{speed}`\n"
+                        f"│ 📊 Progress: {bar} {percent}%\n"
+                        f"╰──────────────────────\n"
+                        f"📥 *Downloading... Please wait.*"
+                    )
+                    asyncio.run_coroutine_threadsafe(msg.edit_text(text, parse_mode='Markdown'), loop)
+
+    ydl_opts['progress_hooks'] = [progress_hook]
 
     try:
-        response = requests.post(api_url, json=payload, headers=headers, timeout=30)
-        res_data = response.json()
-
-        status = res_data.get("status")
-
-        if status in ["stream", "redirect"]:
-            download_url = res_data.get("url")
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=True)
+            filename = ydl.prepare_filename(info)
             
-            await msg.edit_text("⚡️ Link fetched! Downloading file...")
+            if action == "dl_mp3":
+                filename = filename.rsplit('.', 1)[0] + '.mp3'
 
-            file_response = requests.get(download_url, stream=True)
-            filename = "media.mp3" if is_audio else "media.mp4"
-            
-            with open(filename, "wb") as f:
-                for chunk in file_response.iter_content(chunk_size=8192):
-                    if chunk:
-                        f.write(chunk)
-
-            file_size_mb = os.path.getsize(filename) / (1024 * 1024)
-
-            if file_size_mb > 50:
-                await msg.edit_text(f"❌ File too large ({file_size_mb:.1f}MB). Telegram limit is 50MB.")
-                os.remove(filename)
-                return
-
-            await msg.edit_text("📤 Uploading to Telegram...")
-
-            if is_audio:
-                with open(filename, 'rb') as audio:
-                    await query.message.reply_audio(audio=audio, title="Audio Download")
-            else:
-                with open(filename, 'rb') as video:
-                    await query.message.reply_video(video=video, caption="✅ Downloaded Successfully via NishuAI!")
-
+        file_size_mb = os.path.getsize(filename) / (1024 * 1024)
+        
+        if file_size_mb > 50:
+            await msg.edit_text(f"❌ **File too large!**\nSize is {file_size_mb:.1f}MB. Telegram bot limit is 50MB.\nPlease choose 360p or MP3.", parse_mode='Markdown')
             os.remove(filename)
-            await msg.delete()
+            return
 
+        await msg.edit_text("⚡ **Download Complete!**\n📤 *Uploading to Telegram...*", parse_mode='Markdown')
+        
+        if action == "dl_mp3":
+            with open(filename, 'rb') as audio:
+                await query.message.reply_audio(audio=audio, title=info.get('title', 'Audio'))
         else:
-            err_text = res_data.get("text", "Could not fetch media. Try another link.")
-            await msg.edit_text(f"❌ Failed: {err_text}")
+            with open(filename, 'rb') as video:
+                await query.message.reply_video(video=video, caption=f"✅ **{quality_text}** Downloaded Successfully!\n🤖 @NishuAI_Bot", parse_mode='Markdown')
+        
+        os.remove(filename)
+        await msg.delete()
 
     except Exception as e:
-        await msg.edit_text(f"❌ Error: {str(e)[:120]}")
+        await msg.edit_text(f"❌ **Download Failed:**\n`{str(e)[:100]}`\n(The link might be invalid, blocked, or cookies expired)", parse_mode='Markdown')
 
 def main():
     application = Application.builder().token(TOKEN).build()
