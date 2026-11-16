@@ -1,11 +1,6 @@
 import os
-import imageio_ffmpeg
-
-# FFmpeg Setup for Render
-os.environ["PATH"] += os.pathsep + os.path.dirname(imageio_ffmpeg.get_ffmpeg_exe())
-
 import threading
-import yt_dlp
+import requests
 from flask import Flask
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, MessageHandler, filters, ContextTypes, CallbackQueryHandler
@@ -28,7 +23,7 @@ async def link_received(update: Update, context: ContextTypes.DEFAULT_TYPE):
     USER_URLS[user_id] = url
     
     if "instagram.com" in url:
-        keyboard = [[InlineKeyboardButton("📥 Download Instagram Video/Reel", callback_data="dl_insta")]]
+        keyboard = [[InlineKeyboardButton("📥 Download Instagram Reel/Video", callback_data="dl_insta")]]
     else:
         keyboard = [
             [InlineKeyboardButton("🔥 YouTube 1080p", callback_data="dl_1080"),
@@ -51,55 +46,68 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text("⚠️ Link expired. Please send the link again.")
         return
 
-    msg = await query.edit_message_text("🚀 Downloading, please wait...")
+    msg = await query.edit_message_text("🚀 Fetching download link via Fast API...")
+
+    is_audio = (action == "dl_mp3")
+    quality = "1080" if action == "dl_1080" else "720"
+
+    # Using stable public Cobalt API v10/json
+    api_url = "https://api.cobalt.tools/api/json"
+    headers = {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+    }
+    payload = {
+        "url": url,
+        "vQuality": quality,
+        "isAudioOnly": is_audio
+    }
 
     try:
-        if action == "dl_insta":
-            ydl_opts = {'outtmpl': 'media.%(ext)s', 'quiet': True, 'nocheckcertificate': True}
-        elif action == "dl_mp3":
-            ydl_opts = {
-                'extractor_args': {'youtube': {'player_client': ['android']}},
-                'outtmpl': 'media.%(ext)s',
-                'format': 'bestaudio/best',
-                'postprocessors': [{'key': 'FFmpegExtractAudio', 'preferredcodec': 'mp3', 'preferredquality': '128'}],
-                'quiet': True
-            }
+        response = requests.post(api_url, json=payload, headers=headers, timeout=30)
+        res_data = response.json()
+
+        status = res_data.get("status")
+
+        if status in ["stream", "redirect"]:
+            download_url = res_data.get("url")
+            
+            await msg.edit_text("⚡️ Link fetched! Downloading file...")
+
+            file_response = requests.get(download_url, stream=True)
+            filename = "media.mp3" if is_audio else "media.mp4"
+            
+            with open(filename, "wb") as f:
+                for chunk in file_response.iter_content(chunk_size=8192):
+                    if chunk:
+                        f.write(chunk)
+
+            file_size_mb = os.path.getsize(filename) / (1024 * 1024)
+
+            if file_size_mb > 50:
+                await msg.edit_text(f"❌ File too large ({file_size_mb:.1f}MB). Telegram limit is 50MB.")
+                os.remove(filename)
+                return
+
+            await msg.edit_text("📤 Uploading to Telegram...")
+
+            if is_audio:
+                with open(filename, 'rb') as audio:
+                    await query.message.reply_audio(audio=audio, title="Audio Download")
+            else:
+                with open(filename, 'rb') as video:
+                    await query.message.reply_video(video=video, caption="✅ Downloaded Successfully via NishuAI!")
+
+            os.remove(filename)
+            await msg.delete()
+
         else:
-            q = "1080" if action == "dl_1080" else "720"
-            ydl_opts = {
-                'extractor_args': {'youtube': {'player_client': ['android']}},
-                'outtmpl': 'media.%(ext)s',
-                'format': f'best[height<={q}]/best',
-                'quiet': True
-            }
-
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=True)
-            filename = ydl.prepare_filename(info)
-            if action == "dl_mp3":
-                filename = filename.rsplit('.', 1)[0] + '.mp3'
-
-        file_size_mb = os.path.getsize(filename) / (1024 * 1024)
-        if file_size_mb > 50:
-            await msg.edit_text(f"❌ File too large ({file_size_mb:.1f}MB). Limit is 50MB.")
-            os.path.normcase(filename)
-            if os.path.exists(filename): os.remove(filename)
-            return
-
-        await msg.edit_text("📤 Uploading to Telegram...")
-
-        if action == "dl_mp3":
-            with open(filename, 'rb') as audio:
-                await query.message.reply_audio(audio=audio, title=info.get('title', 'Audio'))
-        else:
-            with open(filename, 'rb') as video:
-                await query.message.reply_video(video=video, caption="✅ Downloaded Successfully via NishuAI!")
-
-        if os.path.exists(filename): os.remove(filename)
-        await msg.delete()
+            err_text = res_data.get("text", "Could not fetch media. Try another link.")
+            await msg.edit_text(f"❌ Failed: {err_text}")
 
     except Exception as e:
-        await msg.edit_text(f"❌ Failed: {str(e)[:120]}")
+        await msg.edit_text(f"❌ Error: {str(e)[:120]}")
 
 def main():
     application = Application.builder().token(TOKEN).build()
