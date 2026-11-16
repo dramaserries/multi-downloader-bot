@@ -164,8 +164,8 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await msg.delete()
 
     except Exception as e:
-        # यहाँ से Markdown हटा दिया गया है ताकि कुकीज़ के स्पेशल कैरेक्टर से एरर न आए
-        error_msg = f"❌ Download Failed:\n{str(e)[:100]}\n(The link might be invalid, blocked, or cookies expired)"
+        # यहाँ से पूरी तरह से Markdown हटा दिया गया है ताकि कुकीज़ के स्पेशल कैरेक्टर से एरर न आए
+        error_msg = f"❌ Download Failed:\n{str(e)[:150]}\n(The link might be invalid, blocked, or cookies expired)"
         await msg.edit_text(error_msg)
 
 def main():
