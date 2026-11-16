@@ -13,7 +13,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, MessageHandler, filters, ContextTypes, CallbackQueryHandler
 
 # यहाँ अपना नया टोकन डालें
-TOKEN = "9103593916:AAGVgk8FHYwxGdXgFC047KycAIWamTMSps8"
+TOKEN = "9103593916:AAGDuMwa_5fcMhP8S4uZpMHbh-4FG25TdQ0"
 
 app = Flask(__name__)
 
@@ -29,7 +29,7 @@ async def link_received(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['url'] = url
     
     keyboard = [
-        [InlineKeyboardButton("🔥 1080p", callback_data="dl_1080"),
+        [InlineKeyboardButton("🔥 1080p (Best)", callback_data="dl_1080"),
          InlineKeyboardButton("⚡ 720p", callback_data="dl_720")],
         [InlineKeyboardButton("📱 360p (Small Size)", callback_data="dl_360"),
          InlineKeyboardButton("🎵 Audio (MP3)", callback_data="dl_mp3")]
@@ -62,16 +62,17 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
         'nocheckcertificate': True
     }
 
+    # यहाँ फॉर्मेट ठीक किया गया है (अगर 1080p नहीं है, तो बेस्ट अवेलेबल लेगा)
     if action == "dl_1080":
-        ydl_opts = {**base_opts, 'format': 'bestvideo[height<=1080]+bestaudio/best[height<=1080]'}
+        ydl_opts = {**base_opts, 'format': 'bestvideo[height<=1080]+bestaudio/best'}
         quality_text = "1080p"
     elif action == "dl_720":
-        ydl_opts = {**base_opts, 'format': 'bestvideo[height<=720]+bestaudio/best[height<=720]'}
+        ydl_opts = {**base_opts, 'format': 'bestvideo[height<=720]+bestaudio/best'}
         quality_text = "720p"
     elif action == "dl_360":
         ydl_opts = {
             **base_opts, 
-            'format': 'bestvideo[height<=360]+bestaudio/best[height<=360]',
+            'format': 'bestvideo[height<=360]+bestaudio/best',
             'postprocessor_args': ['-crf', '32', '-preset', 'ultrafast'],
         }
         quality_text = "360p (Compressed)"
