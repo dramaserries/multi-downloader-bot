@@ -37,8 +37,9 @@ async def link_received(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reply_markup = InlineKeyboardMarkup(keyboard)
     
     await update.message.reply_text(
-        "NISHU AI DOWNLOADER\n👇 Please select your download quality:",
-        reply_markup=reply_markup
+        "◈ **NISHU AI DOWNLOADER**\n👇 Please select your download quality:",
+        reply_markup=reply_markup,
+        parse_mode='Markdown'
     )
 
 async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -52,14 +53,15 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text("⚠️ Link not found. Please send the link again.")
         return
 
-    # इंस्टाग्राम के लिए स्पेशल सेटिंग (कुकीज़ के बिना)
-    cookie_option = {}
-    if "instagram.com" in url:
-        cookie_option = {'cookiefile': 'cookies.txt'}
-
+    # YouTube ब्लॉक बायपास के लिए नए क्लाइंट्स और IPv4 फोर्स
     base_opts = {
-        **cookie_option,
-        'extractor_args': {'youtube': {'player_client': ['android', 'ios']}},
+        'extractor_args': {
+            'youtube': {
+                'player_client': ['tv', 'mweb', 'web_safari'], # ये क्लाइंट्स ब्लॉक को बायपास करते हैं
+            }
+        },
+        'force_ipv4': True, # IPv4 फोर्स करने से कुछ ब्लॉक्स हटते हैं
+        'cookiefile': 'cookies.txt', # कुकीज़ का इस्तेमाल
         'outtmpl': 'media.%(ext)s',
         'quiet': True,
         'nocheckcertificate': True
@@ -93,13 +95,14 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     msg = await query.edit_message_text(
-        f"◈ NISHU AI • ENGINE v2.0\n"
+        f"◈ **NISHU AI • ENGINE v2.0**\n"
         f"╭──────────────────────\n"
-        f"│ 🎬 Quality: {quality_text}\n"
-        f"│ ⚡ Status: Initializing...\n"
+        f"│ 🎬 **Quality:** `{quality_text}`\n"
+        f"│ ⚡ Status: `Initializing...`\n"
         f"│ 📊 Progress: ▱▱▱▱▱▱▱▱▱▱ 0%\n"
         f"╰──────────────────────\n"
-        f"🚀 Connecting to servers..."
+        f"🚀 *Connecting to servers...*",
+        parse_mode='Markdown'
     )
 
     last_update_time = 0
@@ -122,15 +125,15 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     bar = "▰" * filled + "▱" * (10 - filled)
                     
                     text = (
-                        f"◈ NISHU AI • ENGINE v2.0\n"
+                        f"◈ **NISHU AI • ENGINE v2.0**\n"
                         f"╭──────────────────────\n"
-                        f"│ 🎬 Quality: {quality_text}\n"
-                        f"│ 🚀 Speed: {speed}\n"
+                        f"│ 🎬 **Quality:** `{quality_text}`\n"
+                        f"│ 🚀 Speed: `{speed}`\n"
                         f"│ 📊 Progress: {bar} {percent}%\n"
                         f"╰──────────────────────\n"
-                        f"📥 Downloading... Please wait."
+                        f"📥 *Downloading... Please wait.*"
                     )
-                    asyncio.run_coroutine_threadsafe(msg.edit_text(text), loop)
+                    asyncio.run_coroutine_threadsafe(msg.edit_text(text, parse_mode='Markdown'), loop)
 
     ydl_opts['progress_hooks'] = [progress_hook]
 
@@ -145,24 +148,24 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
         file_size_mb = os.path.getsize(filename) / (1024 * 1024)
         
         if file_size_mb > 50:
-            await msg.edit_text(f"❌ File too large!\nSize is {file_size_mb:.1f}MB. Telegram bot limit is 50MB.\nPlease choose 360p or MP3.")
+            await msg.edit_text(f"❌ **File too large!**\nSize is {file_size_mb:.1f}MB. Telegram bot limit is 50MB.\nPlease choose 360p or MP3.", parse_mode='Markdown')
             os.remove(filename)
             return
 
-        await msg.edit_text("⚡ Download Complete!\n📤 Uploading to Telegram...")
+        await msg.edit_text("⚡ **Download Complete!**\n📤 *Uploading to Telegram...*", parse_mode='Markdown')
         
         if action == "dl_mp3":
             with open(filename, 'rb') as audio:
                 await query.message.reply_audio(audio=audio, title=info.get('title', 'Audio'))
         else:
             with open(filename, 'rb') as video:
-                await query.message.reply_video(video=video, caption=f"✅ {quality_text} Downloaded Successfully!\n🤖 @NishuAI_Bot")
+                await query.message.reply_video(video=video, caption=f"✅ **{quality_text}** Downloaded Successfully!\n🤖 @NishuAI_Bot", parse_mode='Markdown')
         
         os.remove(filename)
         await msg.delete()
 
     except Exception as e:
-        # यहाँ पूरी तरह से Markdown हटा दिया है ताकि असली एरर साफ दिखे
+        # एरर को साफ दिखाने के लिए Markdown हटा दिया गया है
         error_msg = f"❌ Download Failed:\n{str(e)[:150]}\n(The link might be invalid, blocked, or cookies expired)"
         await msg.edit_text(error_msg)
 
