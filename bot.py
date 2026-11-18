@@ -53,15 +53,15 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text("⚠️ Link not found. Please send the link again.")
         return
 
-    # YouTube ब्लॉक बायपास के लिए नए क्लाइंट्स और IPv4 फोर्स
+    # --- यहाँ Instagram और YouTube के लिए अलग कुकीज़ सेट की गई हैं ---
+    cookie_file = 'cookies.txt'  # डिफ़ॉल्ट रूप से YouTube कुकीज़
+    if "instagram.com" in url:
+        cookie_file = 'insta_cookies.txt'  # Instagram के लिए अलग फाइल
+
     base_opts = {
-        'extractor_args': {
-            'youtube': {
-                'player_client': ['tv', 'mweb', 'web_safari'], # ये क्लाइंट्स ब्लॉक को बायपास करते हैं
-            }
-        },
-        'force_ipv4': True, # IPv4 फोर्स करने से कुछ ब्लॉक्स हटते हैं
-        'cookiefile': 'cookies.txt', # कुकीज़ का इस्तेमाल
+        'extractor_args': {'youtube': {'player_client': ['tv', 'mweb', 'web_safari']}},
+        'force_ipv4': True,
+        'cookiefile': cookie_file, # यहाँ चुनी गई कुकी फाइल इस्तेमाल होगी
         'outtmpl': 'media.%(ext)s',
         'quiet': True,
         'nocheckcertificate': True
@@ -165,7 +165,7 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await msg.delete()
 
     except Exception as e:
-        # एरर को साफ दिखाने के लिए Markdown हटा दिया गया है
+        # यहाँ से Markdown हटा दिया गया है ताकि एरर मैसेज में कोई दिक्कत न आए
         error_msg = f"❌ Download Failed:\n{str(e)[:150]}\n(The link might be invalid, blocked, or cookies expired)"
         await msg.edit_text(error_msg)
 
