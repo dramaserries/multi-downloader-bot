@@ -37,8 +37,9 @@ async def link_received(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reply_markup = InlineKeyboardMarkup(keyboard)
     
     await update.message.reply_text(
-        "👇 Please select your download quality:",
-        reply_markup=reply_markup
+        "◈ **NISHU AI DOWNLOADER**\n👇 Please select your download quality:",
+        reply_markup=reply_markup,
+        parse_mode='Markdown'
     )
 
 async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -52,7 +53,7 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text("⚠️ Link not found. Please send the link again.")
         return
 
-    # --- कुकीज़ चेक करें (अगर फाइल है तो लगाओ, नहीं तो बिना फाइल के ट्राई करो) ---
+    # --- कुकीज़ चेक करें ---
     base_opts = {
         'extractor_args': {'youtube': {'player_client': ['tv', 'mweb', 'web_safari']}},
         'force_ipv4': True,
@@ -95,8 +96,53 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         return
 
-    # यहाँ से सारी Markdown हटा दी गई है ताकि टेलीग्राम कभी एरर न दे
-    msg = await query.edit_message_text(f"⏳ {quality_text} में डाउनलोड हो रहा है, कृपया प्रतीक्षा करें...")
+    msg = await query.edit_message_text(
+        f"◈ **NISHU AI • ENGINE v2.0**\n"
+        f"╭──────────────────────\n"
+        f"│ 🎬 **Quality:** `{quality_text}`\n"
+        f"│ ⚡ Status: `Initializing...`\n"
+        f"│ 📊 Progress: ▱▱▱▱▱▱▱▱▱▱ 0%\n"
+        f"╰──────────────────────\n"
+        f"🚀 *Connecting to servers...*",
+        parse_mode='Markdown'
+    )
+
+    last_update_time = 0
+    loop = asyncio.get_running_loop()
+
+    def progress_hook(d):
+        nonlocal last_update_time
+        if d['status'] == 'downloading':
+            current_time = time.time()
+            # हर 3 सेकंड में अपडेट करें ताकि Telegram ब्लॉक न करे
+            if current_time - last_update_time >= 3:
+                last_update_time = current_time
+                
+                downloaded = d.get('downloaded_bytes', 0)
+                total = d.get('total_bytes') or d.get('total_bytes_estimate', 0)
+                speed = d.get('_speed_str', 'N/A').strip()
+                
+                if total > 0:
+                    percent = int((downloaded / total) * 100)
+                    filled = int(percent / 10)
+                    bar = "▰" * filled + "▱" * (10 - filled)
+                    
+                    text = (
+                        f"◈ **NISHU AI • ENGINE v2.0**\n"
+                        f"╭──────────────────────\n"
+                        f"│ 🎬 **Quality:** `{quality_text}`\n"
+                        f"│ 🚀 Speed: `{speed}`\n"
+                        f"│ 📊 Progress: {bar} {percent}%\n"
+                        f"╰──────────────────────\n"
+                        f"📥 *Downloading... Please wait.*"
+                    )
+                    # प्रोग्रेस अपडेट करें (एरर प्रूफ)
+                    try:
+                        asyncio.run_coroutine_threadsafe(msg.edit_text(text, parse_mode='Markdown'), loop)
+                    except Exception:
+                        pass
+
+    ydl_opts['progress_hooks'] = [progress_hook]
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -113,20 +159,20 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
             os.remove(filename)
             return
 
-        await msg.edit_text("📤 Uploading to Telegram...")
+        await msg.edit_text("⚡ Download Complete!\n📤 Uploading to Telegram...")
         
         if action == "dl_mp3":
             with open(filename, 'rb') as audio:
                 await query.message.reply_audio(audio=audio, title=info.get('title', 'Audio'))
         else:
             with open(filename, 'rb') as video:
-                await query.message.reply_video(video=video, caption=f"✅ {quality_text} Downloaded Successfully!")
+                await query.message.reply_video(video=video, caption=f"✅ {quality_text} Downloaded Successfully!\n🤖 @NishuAI_Bot")
         
         os.remove(filename)
         await msg.delete()
 
     except Exception as e:
-        # असली एरर को साफ करके आपको भेजें (कोई भी स्पेशल कैरेक्टर हटा दिया गया है)
+        # असली एरर को साफ करके आपको भेजें
         error_str = str(e)[:150].replace('_', ' ').replace('*', ' ').replace('[', ' ').replace('`', ' ').replace(']', ' ')
         error_msg = f"❌ Download Failed:\n{error_str}\n\n(Instagram block kar raha hai, ya link galat hai.)"
         await msg.edit_text(error_msg)
