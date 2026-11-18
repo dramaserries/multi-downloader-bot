@@ -53,15 +53,15 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text("⚠️ Link not found. Please send the link again.")
         return
 
-    # --- यहाँ Instagram और YouTube के लिए अलग कुकीज़ सेट की गई हैं ---
-    cookie_file = 'cookies.txt'  # डिफ़ॉल्ट रूप से YouTube कुकीज़
+    # --- Instagram और YouTube के लिए अलग कुकीज़ ---
+    cookie_file = 'cookies.txt'  # YouTube के लिए
     if "instagram.com" in url:
-        cookie_file = 'insta_cookies.txt'  # Instagram के लिए अलग फाइल
+        cookie_file = 'insta_cookies.txt'  # Instagram के लिए
 
     base_opts = {
         'extractor_args': {'youtube': {'player_client': ['tv', 'mweb', 'web_safari']}},
         'force_ipv4': True,
-        'cookiefile': cookie_file, # यहाँ चुनी गई कुकी फाइल इस्तेमाल होगी
+        'cookiefile': cookie_file,
         'outtmpl': 'media.%(ext)s',
         'quiet': True,
         'nocheckcertificate': True
@@ -165,9 +165,12 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await msg.delete()
 
     except Exception as e:
-        # यहाँ से Markdown हटा दिया गया है ताकि एरर मैसेज में कोई दिक्कत न आए
-        error_msg = f"❌ Download Failed:\n{str(e)[:150]}\n(The link might be invalid, blocked, or cookies expired)"
-        await msg.edit_text(error_msg)
+        # यहाँ से पूरी तरह से Markdown हटा दिया गया है ताकि कोई एरर न आए
+        error_msg = f"❌ Download Failed:\n{str(e)[:150]}\n(The link might be invalid or blocked.)"
+        try:
+            await msg.edit_text(error_msg)
+        except Exception:
+            pass # अगर मैसेज एडिट न हो तो चुपचाप इग्नोर कर दें
 
 def main():
     application = Application.builder().token(TOKEN).build()
