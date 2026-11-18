@@ -37,9 +37,8 @@ async def link_received(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reply_markup = InlineKeyboardMarkup(keyboard)
     
     await update.message.reply_text(
-        "◈ **NISHU AI DOWNLOADER**\n👇 Please select your download quality:",
-        reply_markup=reply_markup,
-        parse_mode='Markdown'
+        "👇 Please select your download quality:",
+        reply_markup=reply_markup
     )
 
 async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -53,22 +52,24 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text("⚠️ Link not found. Please send the link again.")
         return
 
-    # --- Instagram और YouTube के लिए अलग कुकीज़ ---
-    cookie_file = 'cookies.txt'  # YouTube के लिए
-    if "instagram.com" in url:
-        cookie_file = 'insta_cookies.txt'  # Instagram के लिए
-
+    # --- कुकीज़ चेक करें (अगर फाइल है तो लगाओ, नहीं तो बिना फाइल के ट्राई करो) ---
     base_opts = {
         'extractor_args': {'youtube': {'player_client': ['tv', 'mweb', 'web_safari']}},
         'force_ipv4': True,
-        'cookiefile': cookie_file,
         'outtmpl': 'media.%(ext)s',
         'quiet': True,
         'nocheckcertificate': True
     }
 
+    if "instagram.com" in url:
+        if os.path.exists('insta_cookies.txt'):
+            base_opts['cookiefile'] = 'insta_cookies.txt'
+    else:
+        if os.path.exists('cookies.txt'):
+            base_opts['cookiefile'] = 'cookies.txt'
+
     if action == "dl_1080":
-        ydl_opts = {**base_opts, 'format': 'bestvideo[height<=1080]+bestaudio/best'}
+        ydl_opts = {**base_opts, 'format': 'best'}
         quality_text = "1080p"
     elif action == "dl_720":
         ydl_opts = {**base_opts, 'format': 'bestvideo[height<=720]+bestaudio/best'}
@@ -94,48 +95,8 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         return
 
-    msg = await query.edit_message_text(
-        f"◈ **NISHU AI • ENGINE v2.0**\n"
-        f"╭──────────────────────\n"
-        f"│ 🎬 **Quality:** `{quality_text}`\n"
-        f"│ ⚡ Status: `Initializing...`\n"
-        f"│ 📊 Progress: ▱▱▱▱▱▱▱▱▱▱ 0%\n"
-        f"╰──────────────────────\n"
-        f"🚀 *Connecting to servers...*",
-        parse_mode='Markdown'
-    )
-
-    last_update_time = 0
-    loop = asyncio.get_running_loop()
-
-    def progress_hook(d):
-        nonlocal last_update_time
-        if d['status'] == 'downloading':
-            current_time = time.time()
-            if current_time - last_update_time >= 4:
-                last_update_time = current_time
-                
-                downloaded = d.get('downloaded_bytes', 0)
-                total = d.get('total_bytes') or d.get('total_bytes_estimate', 0)
-                speed = d.get('_speed_str', 'N/A').strip()
-                
-                if total > 0:
-                    percent = int((downloaded / total) * 100)
-                    filled = int(percent / 10)
-                    bar = "▰" * filled + "▱" * (10 - filled)
-                    
-                    text = (
-                        f"◈ **NISHU AI • ENGINE v2.0**\n"
-                        f"╭──────────────────────\n"
-                        f"│ 🎬 **Quality:** `{quality_text}`\n"
-                        f"│ 🚀 Speed: `{speed}`\n"
-                        f"│ 📊 Progress: {bar} {percent}%\n"
-                        f"╰──────────────────────\n"
-                        f"📥 *Downloading... Please wait.*"
-                    )
-                    asyncio.run_coroutine_threadsafe(msg.edit_text(text, parse_mode='Markdown'), loop)
-
-    ydl_opts['progress_hooks'] = [progress_hook]
+    # यहाँ से सारी Markdown हटा दी गई है ताकि टेलीग्राम कभी एरर न दे
+    msg = await query.edit_message_text(f"⏳ {quality_text} में डाउनलोड हो रहा है, कृपया प्रतीक्षा करें...")
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -148,29 +109,27 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
         file_size_mb = os.path.getsize(filename) / (1024 * 1024)
         
         if file_size_mb > 50:
-            await msg.edit_text(f"❌ **File too large!**\nSize is {file_size_mb:.1f}MB. Telegram bot limit is 50MB.\nPlease choose 360p or MP3.", parse_mode='Markdown')
+            await msg.edit_text(f"❌ File too large!\nSize is {file_size_mb:.1f}MB. Telegram limit is 50MB.\nPlease choose 360p or MP3.")
             os.remove(filename)
             return
 
-        await msg.edit_text("⚡ **Download Complete!**\n📤 *Uploading to Telegram...*", parse_mode='Markdown')
+        await msg.edit_text("📤 Uploading to Telegram...")
         
         if action == "dl_mp3":
             with open(filename, 'rb') as audio:
                 await query.message.reply_audio(audio=audio, title=info.get('title', 'Audio'))
         else:
             with open(filename, 'rb') as video:
-                await query.message.reply_video(video=video, caption=f"✅ **{quality_text}** Downloaded Successfully!\n🤖 @NishuAI_Bot", parse_mode='Markdown')
+                await query.message.reply_video(video=video, caption=f"✅ {quality_text} Downloaded Successfully!")
         
         os.remove(filename)
         await msg.delete()
 
     except Exception as e:
-        # यहाँ से पूरी तरह से Markdown हटा दिया गया है ताकि कोई एरर न आए
-        error_msg = f"❌ Download Failed:\n{str(e)[:150]}\n(The link might be invalid or blocked.)"
-        try:
-            await msg.edit_text(error_msg)
-        except Exception:
-            pass # अगर मैसेज एडिट न हो तो चुपचाप इग्नोर कर दें
+        # असली एरर को साफ करके आपको भेजें (कोई भी स्पेशल कैरेक्टर हटा दिया गया है)
+        error_str = str(e)[:150].replace('_', ' ').replace('*', ' ').replace('[', ' ').replace('`', ' ').replace(']', ' ')
+        error_msg = f"❌ Download Failed:\n{error_str}\n\n(Instagram block kar raha hai, ya link galat hai.)"
+        await msg.edit_text(error_msg)
 
 def main():
     application = Application.builder().token(TOKEN).build()
